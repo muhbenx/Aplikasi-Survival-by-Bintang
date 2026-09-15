@@ -1,6 +1,4 @@
 import streamlit as st
-import folium
-from streamlit_folium import st_folium
 import streamlit.components.v1 as components
 from PIL import Image
 from google import genai
@@ -18,7 +16,7 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v6';
+      const CACHE_NAME = 'survival-app-v8';
       self.addEventListener('install', event => {
         event.waitUntil(
           caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
@@ -113,7 +111,7 @@ with tab1:
                         contents = [img_sampel, img_wadah, prompt]
                     else:
                         prompt = (
-                            "Tolong hitung total seluruh barang/objek yang ada di dalam foto ini secara presisi. "
+                            "Tolong hitung total seluruh barang/objek yang ada di dalam foto me ini secara presisi. "
                             "Sebutkan total angka keseluruhannya dan buatkan daftar rincian barang yang terdeteksi."
                         )
                         contents = [img_wadah, prompt]
@@ -129,62 +127,77 @@ with tab1:
 
 # --- TAB 2: GPS & PETA VISUAL ---
 with tab2:
-    st.header("🗺️ Peta Visual & Lokasi GPS")
+    st.header("🗺️ Peta Live GPS (Direct Tracking)")
+    st.caption("Peta ini terhubung langsung dengan sensor GPS HP kamu secara real-time.")
     
-    # Inisialisasi Session State untuk simpan lokasi pengguna
-    if 'user_lat' not in st.session_state:
-        st.session_state['user_lat'] = -6.8951
-    if 'user_lon' not in st.session_state:
-        st.session_state['user_lon'] = 107.6339
-    if 'location_fetched' not in st.session_state:
-        st.session_state['location_fetched'] = False
+    # Render Peta Leaflet murni langsung di HTML/JS
+    leaflet_direct_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+            #map { height: 450px; width: 100%; border-radius: 10px; }
+            .info-box { background: #222; color: #fff; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-family: sans-serif; font-size: 14px; }
+            button { background: #ff4b4b; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        </style>
+    </head>
+    <body style="margin: 0; background-color: transparent;">
+        <div class="info-box">
+            <button onclick="locateMe()">📍 Kunci Titik Lokasi Saya</button>
+            <span id="gps-status" style="margin-left: 10px;">Mencari sinyal GPS HP...</span>
+        </div>
+        <div id="map"></div>
 
-    st.subheader("1. Lokasi Live Satelit HP")
-    
-    # Input manual koordinat jika pengguna ingin menyesuaikan langsung
-    col_input1, col_input2 = st.columns(2)
-    with col_input1:
-        custom_lat = st.number_input("Latitude", value=st.session_state['user_lat'], format="%.6f")
-    with col_input2:
-        custom_lon = st.number_input("Longitude", value=st.session_state['user_lon'], format="%.6f")
+        <script>
+            // Inisialisasi peta awal
+            var map = L.map('map').setView([0, 0], 2);
 
-    st.session_state['user_lat'] = custom_lat
-    st.session_state['user_lon'] = custom_lon
+            // Tambahkan Tile Layer OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
 
-    gps_html = """
-    <div style="background-color: #222; padding: 15px; border-radius: 8px; color: white;">
-        <button onclick="getLocation()" style="padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">📍 Dapatkan Koordinat & Altitudo Presisi</button>
-        <p id="lat" style="margin-top:10px;">Latitude: -</p>
-        <p id="lon">Longitude: -</p>
-        <p id="alt">Altitudo: -</p>
-    </div>
-    <script>
-    function getLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-          document.getElementById("lat").innerHTML = "Latitude: " + pos.coords.latitude;
-          document.getElementById("lon").innerHTML = "Longitude: " + pos.coords.longitude;
-          document.getElementById("alt").innerHTML = "Altitudo: " + (pos.coords.altitude ? pos.coords.altitude.toFixed(1) + " mdpl" : "Satelit tidak mendeteksi altitudo");
-        }, function(err) { alert("Akses GPS ditolak/gagal: " + err.message); }, {enableHighAccuracy: true});
-      }
-    }
-    </script>
+            var marker, circle;
+
+            function onLocationFound(e) {
+                var radius = e.accuracy / 2;
+
+                if (marker) {
+                    map.removeLayer(marker);
+                    map.removeLayer(circle);
+                }
+
+                marker = L.marker(e.latlng).addTo(map)
+                    .bindPopup("<b>Posisi Kamu Sekarang</b><br>Akurasi sekitar " + Math.round(radius) + " meter.").openPopup();
+
+                circle = L.circle(e.latlng, radius).addTo(map);
+
+                document.getElementById('gps-status').innerHTML = 
+                    "<b>Lat:</b> " + e.latlng.lat.toFixed(6) + " | <b>Lon:</b> " + e.latlng.lng.toFixed(6) + " (Akurasi: " + Math.round(radius) + "m)";
+            }
+
+            function onLocationError(e) {
+                document.getElementById('gps-status').innerHTML = "<span style='color: #ff6b6b;'>Gagal mendapat lokasi: " + e.message + " (Pastikan GPS HP aktif)</span>";
+            }
+
+            function locateMe() {
+                document.getElementById('gps-status').innerText = "Menghubungkan ke satelit GPS...";
+                map.locate({setView: true, maxZoom: 17, enableHighAccuracy: true});
+            }
+
+            map.on('locationfound', onLocationFound);
+            map.on('locationerror', onLocationError);
+
+            // Jalankan otomatis saat peta dimuat
+            locateMe();
+        </script>
+    </body>
+    </html>
     """
-    components.html(gps_html, height=160)
-    
-    st.subheader("2. Peta Topografi / Visual (Folium)")
-    st.info("Salin nilai Latitude & Longitude dari tombol di atas ke kolom input angka jika ingin memindahkan fokus peta secara tepat ke posisimu.")
-    
-    # Peta merender berdasarkan titik latitude & longitude aktif
-    m = folium.Map(location=[st.session_state['user_lat'], st.session_state['user_lon']], zoom_start=15)
-    folium.Marker(
-        [st.session_state['user_lat'], st.session_state['user_lon']], 
-        popup="Posisi Kamu", 
-        tooltip="Lokasi Terdeteksi",
-        icon=folium.Icon(color="red", icon="info-sign")
-    ).add_to(m)
-    
-    st_folium(m, width=700, height=400)
+    components.html(leaflet_direct_html, height=520)
 
 # --- TAB 3: KOMPAS & SOS ---
 with tab3:
