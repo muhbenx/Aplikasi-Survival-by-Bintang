@@ -16,7 +16,7 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v10';
+      const CACHE_NAME = 'survival-app-v11';
       self.addEventListener('install', event => {
         event.waitUntil(
           caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
@@ -41,7 +41,7 @@ components.html(pwa_code, height=0)
 with st.sidebar:
     st.title("⚙ Config")
     api_key = st.text_input("Gemini API Key:", type="password", placeholder="Paste API Key di sini...")
-    st.caption("Powered by Gemini Vision AI")
+    st.caption("Powered by Gemini 3.6 Flash Vision AI")
 
 # --- TAB NAVIGATION ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -124,7 +124,7 @@ with tab1:
                         contents = [img_wadah, prompt]
                         
                     response = client.models.generate_content(
-                        model="gemini-2.0-flash",
+                        model="gemini-3.6-flash",
                         contents=contents
                     )
                     st.success("Hasil Perhitungan AI:")
