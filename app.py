@@ -16,7 +16,7 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v8';
+      const CACHE_NAME = 'survival-app-v9';
       self.addEventListener('install', event => {
         event.waitUntil(
           caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
@@ -41,7 +41,7 @@ components.html(pwa_code, height=0)
 with st.sidebar:
     st.title("⚙ Config")
     api_key = st.text_input("Gemini API Key:", type="password", placeholder="Paste API Key di sini...")
-    st.caption("Powered by Gemini 2.5 Flash Vision AI")
+    st.caption("Powered by Gemini 3.6 Flash Vision AI")
 
 # --- TAB NAVIGATION ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -111,13 +111,13 @@ with tab1:
                         contents = [img_sampel, img_wadah, prompt]
                     else:
                         prompt = (
-                            "Tolong hitung total seluruh barang/objek yang ada di dalam foto me ini secara presisi. "
+                            "Tolong hitung total seluruh barang/objek yang ada di dalam foto ini secara presisi. "
                             "Sebutkan total angka keseluruhannya dan buatkan daftar rincian barang yang terdeteksi."
                         )
                         contents = [img_wadah, prompt]
                         
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.6-flash",
                         contents=contents
                     )
                     st.success("Hasil Perhitungan AI:")
@@ -130,7 +130,6 @@ with tab2:
     st.header("🗺️ Peta Live GPS (Direct Tracking)")
     st.caption("Peta ini terhubung langsung dengan sensor GPS HP kamu secara real-time.")
     
-    # Render Peta Leaflet murni langsung di HTML/JS
     leaflet_direct_html = """
     <!DOCTYPE html>
     <html>
@@ -151,10 +150,8 @@ with tab2:
         <div id="map"></div>
 
         <script>
-            // Inisialisasi peta awal
             var map = L.map('map').setView([0, 0], 2);
 
-            // Tambahkan Tile Layer OpenStreetMap
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap contributors'
@@ -191,7 +188,6 @@ with tab2:
             map.on('locationfound', onLocationFound);
             map.on('locationerror', onLocationError);
 
-            // Jalankan otomatis saat peta dimuat
             locateMe();
         </script>
     </body>
