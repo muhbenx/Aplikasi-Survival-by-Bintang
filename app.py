@@ -10,21 +10,34 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. INJEKSI PWA OFFLINE
+# 2. INJEKSI PWA FULL OFFLINE (SERVICE WORKER & MANIFEST)
 pwa_code = """
 <script>
+// Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v11';
+      const CACHE_NAME = 'survival-pwa-v12';
+      const urlsToCache = [
+        '/',
+        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ];
+
       self.addEventListener('install', event => {
         event.waitUntil(
-          caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
+          caches.open(CACHE_NAME).then(cache => {
+            return cache.addAll(urlsToCache);
+          })
         );
       });
+
       self.addEventListener('fetch', event => {
         event.respondWith(
-          caches.match(event.request).then(response => response || fetch(event.request))
+          caches.match(event.request).then(response => {
+            return response || fetch(event.request);
+          })
         );
       });
     `;
@@ -42,6 +55,7 @@ with st.sidebar:
     st.title("⚙ Config")
     api_key = st.text_input("Gemini API Key:", type="password", placeholder="Paste API Key di sini...")
     st.caption("Powered by Gemini 3.6 Flash Vision AI")
+    st.info("💡 **Mode Offline:** Peta GPS, Peluit SOS, dan Buku Panduan tetap bekerja tanpa internet!")
 
 # --- TAB NAVIGATION ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -55,7 +69,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # --- TAB 1: AI OBJECT COUNTER ---
 with tab1:
     st.title("📦 AI Object Counter")
-    st.caption("Automated Visual Inventory & Overlapping Object Detector")
+    st.caption("Automated Visual Inventory & Overlapping Object Detector (Membutuhkan Koneksi Internet)")
     
     st.subheader("🎯 Mode Perhitungan")
     mode = st.radio(
@@ -132,10 +146,10 @@ with tab1:
                 except Exception as e:
                     st.error(f"Gagal memproses perhitungan: {e}")
 
-# --- TAB 2: GPS & PETA VISUAL ---
+# --- TAB 2: GPS & PETA VISUAL (SUPPORT LIVE TRACKING & OFFLINE) ---
 with tab2:
     st.header("🗺️ Peta Live GPS (Direct Tracking)")
-    st.caption("Peta ini terhubung langsung dengan sensor GPS HP kamu secara real-time.")
+    st.caption("Peta terhubung langsung dengan GPS HP secara real-time. Tetap mendeteksi koordinat meskipun offline.")
     
     leaflet_direct_html = """
     <!DOCTYPE html>
@@ -189,7 +203,7 @@ with tab2:
 
             function locateMe() {
                 document.getElementById('gps-status').innerText = "Menghubungkan ke satelit GPS...";
-                map.locate({setView: true, maxZoom: 17, enableHighAccuracy: true});
+                map.locate({setView: true, maxZoom: 17, watch: true, enableHighAccuracy: true});
             }
 
             map.on('locationfound', onLocationFound);
