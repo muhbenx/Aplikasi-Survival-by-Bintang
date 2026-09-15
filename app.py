@@ -18,7 +18,7 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v5';
+      const CACHE_NAME = 'survival-app-v6';
       self.addEventListener('install', event => {
         event.waitUntil(
           caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
@@ -69,7 +69,6 @@ with tab1:
     foto_sampel = None
     foto_wadah = None
     
-    # DYNAMIC LAYOUT BERDASARKAN MODE
     if "Spesifik" in mode:
         col1, col2 = st.columns(2)
         with col1:
@@ -84,13 +83,12 @@ with tab1:
             if foto_wadah:
                 st.image(Image.open(foto_wadah), use_container_width=True)
     else:
-        # MODE TOTAL SEMUA OBJEK -> CUMA 1 UPLOAD
         st.write("**Foto Isi Wadah / Box / Kumpulan Barang**")
         foto_wadah = st.file_uploader("Upload foto wadah/kumpulan barang", type=["jpg", "jpeg", "png"], key="wadah_total")
         if foto_wadah:
             st.image(Image.open(foto_wadah), use_container_width=True)
             
-    st.write("") # Spacing
+    st.write("")
     if st.button("✨ Mulai Perhitungan AI", use_container_width=True):
         if not api_key:
             st.error("Masukkan Gemini API Key terlebih dahulu di Sidebar Config!")
@@ -133,10 +131,29 @@ with tab1:
 with tab2:
     st.header("🗺️ Peta Visual & Lokasi GPS")
     
+    # Inisialisasi Session State untuk simpan lokasi pengguna
+    if 'user_lat' not in st.session_state:
+        st.session_state['user_lat'] = -6.8951
+    if 'user_lon' not in st.session_state:
+        st.session_state['user_lon'] = 107.6339
+    if 'location_fetched' not in st.session_state:
+        st.session_state['location_fetched'] = False
+
     st.subheader("1. Lokasi Live Satelit HP")
+    
+    # Input manual koordinat jika pengguna ingin menyesuaikan langsung
+    col_input1, col_input2 = st.columns(2)
+    with col_input1:
+        custom_lat = st.number_input("Latitude", value=st.session_state['user_lat'], format="%.6f")
+    with col_input2:
+        custom_lon = st.number_input("Longitude", value=st.session_state['user_lon'], format="%.6f")
+
+    st.session_state['user_lat'] = custom_lat
+    st.session_state['user_lon'] = custom_lon
+
     gps_html = """
     <div style="background-color: #222; padding: 15px; border-radius: 8px; color: white;">
-        <button onclick="getLocation()" style="padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Dapatkan Koordinat & Altitudo</button>
+        <button onclick="getLocation()" style="padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">📍 Dapatkan Koordinat & Altitudo Presisi</button>
         <p id="lat" style="margin-top:10px;">Latitude: -</p>
         <p id="lon">Longitude: -</p>
         <p id="alt">Altitudo: -</p>
@@ -156,9 +173,17 @@ with tab2:
     components.html(gps_html, height=160)
     
     st.subheader("2. Peta Topografi / Visual (Folium)")
-    default_lat, default_lon = -6.8951, 107.6339
-    m = folium.Map(location=[default_lat, default_lon], zoom_start=12)
-    folium.Marker([default_lat, default_lon], popup="Pos Survival", tooltip="Lokasi Awal").add_to(m)
+    st.info("Salin nilai Latitude & Longitude dari tombol di atas ke kolom input angka jika ingin memindahkan fokus peta secara tepat ke posisimu.")
+    
+    # Peta merender berdasarkan titik latitude & longitude aktif
+    m = folium.Map(location=[st.session_state['user_lat'], st.session_state['user_lon']], zoom_start=15)
+    folium.Marker(
+        [st.session_state['user_lat'], st.session_state['user_lon']], 
+        popup="Posisi Kamu", 
+        tooltip="Lokasi Terdeteksi",
+        icon=folium.Icon(color="red", icon="info-sign")
+    ).add_to(m)
+    
     st_folium(m, width=700, height=400)
 
 # --- TAB 3: KOMPAS & SOS ---
