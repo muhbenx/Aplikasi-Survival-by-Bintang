@@ -8,7 +8,7 @@ import os
 
 # 1. SETTING HALAMAN
 st.set_page_config(
-    page_title="Offline Survival Suite",
+    page_title="Offline Survival Suite & AI Assistant",
     page_icon="🏕️",
     layout="wide"
 )
@@ -19,7 +19,7 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v2';
+      const CACHE_NAME = 'survival-app-v3';
       self.addEventListener('install', event => {
         event.waitUntil(
           caches.open(CACHE_NAME).then(cache => {
@@ -60,6 +60,12 @@ with tab1:
     st.write("Foto/upload barang logistik kamu untuk dihitung otomatis menggunakan Gemini AI.")
     
     api_key = st.text_input("Masukkan Google AI Studio API Key:", type="password")
+    
+    target_object = st.text_input(
+        "Ingin menghitung barang tertentu saja? (Opsional)", 
+        placeholder="Contoh: Mie instan, Botol air, Kaleng (Kosongkan jika ingin hitung semua)"
+    )
+    
     uploaded_file = st.file_uploader("Upload Foto Logistics/Barang", type=["jpg", "jpeg", "png"])
     
     if uploaded_file and api_key:
@@ -70,7 +76,12 @@ with tab1:
             with st.spinner("Menganalisis foto..."):
                 try:
                     client = genai.Client(api_key=api_key)
-                    prompt = "Tolong hitung dan sebutkan rincian jumlah barang/logistik survival yang ada di foto ini secara detail."
+                    
+                    if target_object.strip():
+                        prompt = f"Tolong hitung secara spesifik jumlah '{target_object}' yang ada di dalam foto ini. Sebutkan jumlah totalnya dan beri rincian singkat."
+                    else:
+                        prompt = "Tolong hitung dan sebutkan rincian jumlah seluruh barang/logistik survival yang ada di foto ini secara detail."
+                        
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=[image, prompt]
@@ -109,7 +120,7 @@ with tab2:
     st.subheader("2. Peta Topografi / Visual (Folium)")
     st.info("Peta ini merender data visual online. Buka/zoom area gunung sebelum berangkat agar tersimpan di cache HP.")
     
-    default_lat, default_lon = -6.8951, 107.6339 # Default Bandung/Jabar
+    default_lat, default_lon = -6.8951, 107.6339
     m = folium.Map(location=[default_lat, default_lon], zoom_start=12)
     folium.Marker([default_lat, default_lon], popup="Pos Survival", tooltip="Lokasi Awal").add_to(m)
     st_folium(m, width=700, height=400)
