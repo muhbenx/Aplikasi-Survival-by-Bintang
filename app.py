@@ -4,12 +4,11 @@ from streamlit_folium import st_folium
 import streamlit.components.v1 as components
 from PIL import Image
 from google import genai
-import os
 
 # 1. SETTING HALAMAN
 st.set_page_config(
     page_title="Offline Survival Suite & AI Assistant",
-    page_icon="🏕️",
+    page_icon="📦",
     layout="wide"
 )
 
@@ -19,19 +18,15 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v3';
+      const CACHE_NAME = 'survival-app-v5';
       self.addEventListener('install', event => {
         event.waitUntil(
-          caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(['/']);
-          })
+          caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
         );
       });
       self.addEventListener('fetch', event => {
         event.respondWith(
-          caches.match(event.request).then(response => {
-            return response || fetch(event.request);
-          })
+          caches.match(event.request).then(response => response || fetch(event.request))
         );
       });
     `;
@@ -44,10 +39,15 @@ if ('serviceWorker' in navigator) {
 """
 components.html(pwa_code, height=0)
 
-st.title("🏕️ Offline Survival Suite & AI Assistant")
+# --- SIDEBAR CONFIG ---
+with st.sidebar:
+    st.title("⚙ Config")
+    api_key = st.text_input("Gemini API Key:", type="password", placeholder="Paste API Key di sini...")
+    st.caption("Powered by Gemini 2.5 Flash Vision AI")
 
+# --- TAB NAVIGATION ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📸 AI Object Counter", 
+    "📦 AI Object Counter", 
     "🗺️ GPS & Peta Visual", 
     "🧭 Kompas & SOS", 
     "🔊 Peluit Darurat", 
@@ -56,40 +56,78 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 # --- TAB 1: AI OBJECT COUNTER ---
 with tab1:
-    st.header("📸 Hitung Barang Bawaan (AI Counter)")
-    st.write("Foto/upload barang logistik kamu untuk dihitung otomatis menggunakan Gemini AI.")
+    st.title("📦 AI Object Counter")
+    st.caption("Automated Visual Inventory & Overlapping Object Detector")
     
-    api_key = st.text_input("Masukkan Google AI Studio API Key:", type="password")
-    
-    target_object = st.text_input(
-        "Ingin menghitung barang tertentu saja? (Opsional)", 
-        placeholder="Contoh: Mie instan, Botol air, Kaleng (Kosongkan jika ingin hitung semua)"
+    st.subheader("🎯 Mode Perhitungan")
+    mode = st.radio(
+        "Pilih Mode:",
+        ["Hitung Objek Spesifik (Sesuai Foto Sampel)", "Hitung TOTAL SEMUA Objek dalam Wadah"],
+        label_visibility="collapsed"
     )
     
-    uploaded_file = st.file_uploader("Upload Foto Logistics/Barang", type=["jpg", "jpeg", "png"])
+    foto_sampel = None
+    foto_wadah = None
     
-    if uploaded_file and api_key:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Foto Barang", use_container_width=True)
-        
-        if st.button("Hitung Barang"):
-            with st.spinner("Menganalisis foto..."):
+    # DYNAMIC LAYOUT BERDASARKAN MODE
+    if "Spesifik" in mode:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**1. Sampel Objek**")
+            foto_sampel = st.file_uploader("Upload foto sampel", type=["jpg", "jpeg", "png"], key="sampel")
+            if foto_sampel:
+                st.image(Image.open(foto_sampel), use_container_width=True)
+                
+        with col2:
+            st.write("**2. Isi Wadah / Box**")
+            foto_wadah = st.file_uploader("Upload foto wadah terisi", type=["jpg", "jpeg", "png"], key="wadah_spesifik")
+            if foto_wadah:
+                st.image(Image.open(foto_wadah), use_container_width=True)
+    else:
+        # MODE TOTAL SEMUA OBJEK -> CUMA 1 UPLOAD
+        st.write("**Foto Isi Wadah / Box / Kumpulan Barang**")
+        foto_wadah = st.file_uploader("Upload foto wadah/kumpulan barang", type=["jpg", "jpeg", "png"], key="wadah_total")
+        if foto_wadah:
+            st.image(Image.open(foto_wadah), use_container_width=True)
+            
+    st.write("") # Spacing
+    if st.button("✨ Mulai Perhitungan AI", use_container_width=True):
+        if not api_key:
+            st.error("Masukkan Gemini API Key terlebih dahulu di Sidebar Config!")
+        elif not foto_wadah:
+            st.error("Upload foto barang/wadah terlebih dahulu!")
+        elif "Spesifik" in mode and not foto_sampel:
+            st.error("Untuk mode Objek Spesifik, kamu harus mengunggah Foto Sampel!")
+        else:
+            with st.spinner("Menganalisis objek dengan AI..."):
                 try:
                     client = genai.Client(api_key=api_key)
+                    img_wadah = Image.open(foto_wadah)
                     
-                    if target_object.strip():
-                        prompt = f"Tolong hitung secara spesifik jumlah '{target_object}' yang ada di dalam foto ini. Sebutkan jumlah totalnya dan beri rincian singkat."
+                    if "Spesifik" in mode and foto_sampel:
+                        img_sampel = Image.open(foto_sampel)
+                        prompt = (
+                            "Gambar pertama adalah contoh sampel objek target. "
+                            "Gambar kedua adalah kumpulan objek/wadah. "
+                            "Tolong hitung secara akurat berapa jumlah total objek pada gambar kedua yang SAMA JENISNYA dengan objek sampel di gambar pertama. "
+                            "Sebutkan jumlah angka pastinya dan beri rincian analisisnya."
+                        )
+                        contents = [img_sampel, img_wadah, prompt]
                     else:
-                        prompt = "Tolong hitung dan sebutkan rincian jumlah seluruh barang/logistik survival yang ada di foto ini secara detail."
+                        prompt = (
+                            "Tolong hitung total seluruh barang/objek yang ada di dalam foto ini secara presisi. "
+                            "Sebutkan total angka keseluruhannya dan buatkan daftar rincian barang yang terdeteksi."
+                        )
+                        contents = [img_wadah, prompt]
                         
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
-                        contents=[image, prompt]
+                        contents=contents
                     )
-                    st.success("Hasil Analisis:")
+                    st.success("Hasil Perhitungan AI:")
                     st.write(response.text)
                 except Exception as e:
-                    st.error(f"Gagal memproses gambar: {e}")
+                    st.error(f"Gagal memproses perhitungan: {e}")
 
 # --- TAB 2: GPS & PETA VISUAL ---
 with tab2:
@@ -118,8 +156,6 @@ with tab2:
     components.html(gps_html, height=160)
     
     st.subheader("2. Peta Topografi / Visual (Folium)")
-    st.info("Peta ini merender data visual online. Buka/zoom area gunung sebelum berangkat agar tersimpan di cache HP.")
-    
     default_lat, default_lon = -6.8951, 107.6339
     m = folium.Map(location=[default_lat, default_lon], zoom_start=12)
     folium.Marker([default_lat, default_lon], popup="Pos Survival", tooltip="Lokasi Awal").add_to(m)
