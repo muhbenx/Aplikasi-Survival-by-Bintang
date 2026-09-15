@@ -16,7 +16,7 @@ pwa_code = """
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     const swCode = `
-      const CACHE_NAME = 'survival-app-v9';
+      const CACHE_NAME = 'survival-app-v10';
       self.addEventListener('install', event => {
         event.waitUntil(
           caches.open(CACHE_NAME).then(cache => cache.addAll(['/']))
@@ -41,7 +41,7 @@ components.html(pwa_code, height=0)
 with st.sidebar:
     st.title("⚙ Config")
     api_key = st.text_input("Gemini API Key:", type="password", placeholder="Paste API Key di sini...")
-    st.caption("Powered by Gemini 3.6 Flash Vision AI")
+    st.caption("Powered by Gemini Vision AI")
 
 # --- TAB NAVIGATION ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -95,7 +95,7 @@ with tab1:
         elif "Spesifik" in mode and not foto_sampel:
             st.error("Untuk mode Objek Spesifik, kamu harus mengunggah Foto Sampel!")
         else:
-            with st.spinner("Menganalisis objek dengan AI..."):
+            with st.spinner("Menganalisis objek dengan AI secara presisi..."):
                 try:
                     client = genai.Client(api_key=api_key)
                     img_wadah = Image.open(foto_wadah)
@@ -104,20 +104,27 @@ with tab1:
                         img_sampel = Image.open(foto_sampel)
                         prompt = (
                             "Gambar pertama adalah contoh sampel objek target. "
-                            "Gambar kedua adalah kumpulan objek/wadah. "
-                            "Tolong hitung secara akurat berapa jumlah total objek pada gambar kedua yang SAMA JENISNYA dengan objek sampel di gambar pertama. "
-                            "Sebutkan jumlah angka pastinya dan beri rincian analisisnya."
+                            "Gambar kedua adalah foto wadah/tempat penyimpanan. "
+                            "Instruksi Khusus:\n"
+                            "1. FOKUS UTAMA: Hitung HANYA objek di DALAM WADAH pada gambar kedua yang SAMA JENISNYA dengan gambar pertama. Perhatikan posisi penumpukan/tumpang tindih dengan sangat teliti agar hitungan tepat.\n"
+                            "2. Berikan jumlah total angka yang pasti untuk barang DI DALAM WADAH.\n"
+                            "3. OPSIONAL: Jika ada objek serupa di luar wadah, sebutkan secara terpisah di bagian 'Catatan Tambahan (Luar Wadah)'."
                         )
                         contents = [img_sampel, img_wadah, prompt]
                     else:
                         prompt = (
-                            "Tolong hitung total seluruh barang/objek yang ada di dalam foto ini secara presisi. "
-                            "Sebutkan total angka keseluruhannya dan buatkan daftar rincian barang yang terdeteksi."
+                            "Tolong analisis dan hitung objek dalam foto ini secara sangat teliti dengan aturan ketat berikut:\n\n"
+                            "1. **FOKUS UTAMA (Barang di DALAM Wadah/Box):**\n"
+                            "   - Hitung seluruh barang (seperti pulpen, spidol, pensil, dll.) yang secara fisik berada DI DALAM wadah putih.\n"
+                            "   - Hitung dari kiri ke kanan secara cermat, perhatikan bagian ujung atau klip pulpen agar tidak ada yang terhitung ganda atau terlewat.\n"
+                            "   - Berikan **JUMLAH TOTAL UTAMA** untuk isi wadah.\n\n"
+                            "2. **OPSIONAL (Barang di LUAR Wadah):**\n"
+                            "   - Buat bagian terpisah berjudul '📌 Catatan Tambahan (Objek Luar Wadah)' jika ada objek lain di luar wadah (misalnya meteran gulung, meja, dll.). Jangan gabungkan jumlah objek luar ini ke dalam Total Utama Wadah."
                         )
                         contents = [img_wadah, prompt]
                         
                     response = client.models.generate_content(
-                        model="gemini-3.6-flash",
+                        model="gemini-2.0-flash",
                         contents=contents
                     )
                     st.success("Hasil Perhitungan AI:")
